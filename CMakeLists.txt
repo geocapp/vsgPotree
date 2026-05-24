@@ -1,0 +1,21 @@
+cmake_minimum_required(VERSION 3.17.5)
+
+project(vsgPotree)
+SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMakeModules;${CMAKE_MODULE_PATH}")
+SET(THIRD_PARTY_DIR ${CMAKE_SOURCE_DIR}/../ThirdParty CACHE PATH "Base 3rd-party dependency folder (containing include, lib, bin)")
+
+IF(THIRD_PARTY_DIR)
+    LIST(APPEND CMAKE_INCLUDE_PATH ${THIRD_PARTY_DIR}/include)
+    LIST(APPEND CMAKE_LIBRARY_PATH ${THIRD_PARTY_DIR}/lib)
+    LIST(APPEND CMAKE_PREFIX_PATH ${THIRD_PARTY_DIR}/lib/cmake)
+    LIST(APPEND CMAKE_PREFIX_PATH ${THIRD_PARTY_DIR}/share/vsg)
+    LIST(APPEND CMAKE_PREFIX_PATH ${THIRD_PARTY_DIR}/share/glslang)
+    LIST(APPEND CMAKE_PREFIX_PATH ${THIRD_PARTY_DIR}/SPIRV-Tools-opt/cmake)
+    LIST(APPEND CMAKE_PREFIX_PATH ${THIRD_PARTY_DIR}/SPIRV-Tools/cmake)
+ENDIF(THIRD_PARTY_DIR)
+SET(CMAKE_CXX_STANDARD 17)
+include_directories(${CMAKE_SOURCE_DIR})
+
+find_package(vsg REQUIRED)
+
+add_subdirectory(vsgPotree)
