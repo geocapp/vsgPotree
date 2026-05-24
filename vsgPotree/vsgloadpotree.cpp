@@ -101,7 +101,7 @@ PointCloudContent createPointCloudData()
     return content;
 }
 
-vsg::ref_ptr<vsg::Node> createPointCloud()
+vsg::ref_ptr<vsg::Node> createPointCloudNode()
 {
     auto vertexData = createPointCloudData();
     auto vertexShader = vsg::ShaderStage::create(
@@ -205,7 +205,7 @@ int main(int argc, char** argv)
     options->add(vsg::spirv::create());
 
     // load VulkanSceneGraph scene graph
-    auto vsg_scene = createPointCloud();
+    auto vsg_scene = createPointCloudNode();
 
     if (!vsg_scene)
     {

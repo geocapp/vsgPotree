@@ -5,12 +5,12 @@
 
 namespace vsgPotree
 {
+    class Attributes;
+    class HNode;
     class potree : public vsg::Inherit<vsg::ReaderWriter, potree>
     {
     public:
         potree();
-        vsg::ref_ptr<vsg::Object> readTileData(const std::vector<uint8_t>&, vsg::ref_ptr<const vsg::Options>) const;
-
         vsg::ref_ptr<vsg::Object> read(const vsg::Path&, vsg::ref_ptr<const vsg::Options>) const override;
         vsg::ref_ptr<vsg::Object> read(std::istream&, vsg::ref_ptr<const vsg::Options>) const override;
         vsg::ref_ptr<vsg::Object> read(const uint8_t* ptr, size_t size,
@@ -18,6 +18,13 @@ namespace vsgPotree
 
         bool getFeatures(Features& features) const override;
         bool readOptions(vsg::Options& options, vsg::CommandLine& arguments) const override;
+
+    protected:
+        bool ParseHierarchy(const std::string& hierarchyPath, int offset, vsg::ref_ptr<HNode>& hNode) const;
+        void ParseToHNode(const std::vector<char>& data, vsg::ref_ptr<HNode> hNode) const;
+        bool ParseMetadata(const std::string& path, vsg::ref_ptr<Attributes>& attributes) const;
+        vsg::ref_ptr<vsg::Node> createTile(vsg::ref_ptr<HNode> hNode, vsg::ref_ptr<Attributes> attributes, const vsg::Path& filePathDir, vsg::ref_ptr<const vsg::Options> options) const;
+        vsg::ref_ptr<vsg::Node> createPointCloudNode(const std::vector<char>& data, int pointNum, vsg::ref_ptr<Attributes> attributes) const;
 
     protected:
         virtual ~potree();
