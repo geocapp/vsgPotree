@@ -7,6 +7,7 @@ namespace vsgPotree
 {
     class Attributes;
     class HNode;
+    class PipelineCache;
     class potree : public vsg::Inherit<vsg::ReaderWriter, potree>
     {
     public:
@@ -24,7 +25,8 @@ namespace vsgPotree
         void ParseToHNode(const std::vector<char>& data, vsg::ref_ptr<HNode> hNode) const;
         bool ParseMetadata(const std::string& path, vsg::ref_ptr<Attributes>& attributes) const;
         vsg::ref_ptr<vsg::Node> createTile(vsg::ref_ptr<HNode> hNode, vsg::ref_ptr<Attributes> attributes, const vsg::Path& filePathDir, vsg::ref_ptr<const vsg::Options> options) const;
-        vsg::ref_ptr<vsg::Node> createPointCloudNode(const std::vector<char>& data, int pointNum, vsg::ref_ptr<Attributes> attributes) const;
+        vsg::ref_ptr<vsg::Node> createPointCloudNode(const std::vector<char>& data, int pointNum, vsg::ref_ptr<Attributes> attributes, vsg::ref_ptr<vsgPotree::PipelineCache> pipelineCache) const;
+        vsg::ref_ptr<vsg::Node> createTileChildren(vsg::ref_ptr<HNode> parentHNode, vsg::ref_ptr<Attributes> attributes, const std::string& filePathDir, vsg::ref_ptr<const vsg::Options> options) const;
 
     protected:
         virtual ~potree();

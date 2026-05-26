@@ -1,7 +1,11 @@
 set(INCS
+    Attributes.h
+    json.hpp
     vsgpotree.h
+    vsgPipelineCache.h
 )
 set(SOURCES
+    vsgPipelineCache.cpp
     vsgpotree.cpp
     vsgloadpotree.cpp
 )

@@ -1,5 +1,6 @@
 ﻿#include <vsg/all.h>
 #include "vsgpotree.h"
+#include "vsgPipelineCache.h"
 #include "Attributes.h"
 #include "json.hpp"
 
@@ -39,6 +40,35 @@ namespace vsgPotree
         TYPE     _type = TYPE::LEAF;
         std::vector<vsg::ref_ptr<HNode> > _children;
     };
+    
+    class PotreeContainer : public vsg::Inherit<vsg::Object, PotreeContainer>
+    {
+    public:
+        PotreeContainer()
+        {
+        }
+
+        explicit PotreeContainer(vsg::ref_ptr<HNode> hNode, vsg::ref_ptr<Attributes> attributes)
+        {
+            _hNode = hNode;
+            _attributes = attributes;
+        }
+
+        vsg::ref_ptr<HNode> node() const
+        {
+            return _hNode;
+        }
+
+        vsg::ref_ptr<Attributes> attributes()  const
+        {
+            return _attributes;
+        }
+
+    protected:
+        vsg::ref_ptr<HNode> _hNode;
+        vsg::ref_ptr<Attributes> _attributes;
+    };
+
 }
 
 vsgPotree::potree::potree() : _supportedExtensions{ ".potree", ".potreechildren"} 
@@ -172,7 +202,11 @@ vsg::ref_ptr<vsg::Object> vsgPotree::potree::read(const vsg::Path& path, vsg::re
     vsg::Path filePathDir = vsg::removeExtension(path);
     if (ext == ".potreechildren")//childNode
     {
-
+        const PotreeContainer* parentHNodeContainer = dynamic_cast<const PotreeContainer*> (opt->getAuxiliary()->getObject("ParentTile"));
+        if (parentHNodeContainer)
+        {
+            return createTileChildren(parentHNodeContainer->node(), parentHNodeContainer->attributes(), vsg::removeExtension(filePathDir).string(), opt);
+        }
     }
     if (ext == ".potree")//rootNode
     {
@@ -212,19 +246,6 @@ bool vsgPotree::potree::readOptions(vsg::Options& options, vsg::CommandLine& arg
     return false;
 }
 
-
-enum AttributeChannels : uint32_t
-{
-    VERTEX_CHANNEL = 0,    // osg 0
-    NORMAL_CHANNEL = 1,    // osg 1
-    TANGENT_CHANNEL = 2,   //osg 6
-    COLOR_CHANNEL = 3,     // osg 2
-    TEXCOORD0_CHANNEL = 4, //osg 3
-    TEXCOORD1_CHANNEL = 5,
-    TEXCOORD2_CHANNEL = 6,
-    TRANSLATE_CHANNEL = 7
-};
-
 struct PointCloudContent
 {
     vsg::ref_ptr<vsg::vec3Array> vertices;
@@ -233,59 +254,13 @@ struct PointCloudContent
     uint32_t count() const { return vertices ? static_cast<uint32_t>(vertices->size()) : 0; }
 };
 
-////////////////////////////////////////////////////////////////
-//
-// shaders
-//
-////////////////////////////////////////////////////////////////
-
-static const char* vertexShaderSource = R"(
-
-#version 450
-
-layout(location = 0) in vec3 inPosition;
-layout(location = 3) in vec4 inColor;
-
-layout(location = 0) out vec4 fragColor;
-
-layout(push_constant) uniform PushConstants
-{
-    mat4 projection;
-    mat4 view;
-} pc;
-
-void main()
-{
-    gl_Position = pc.projection * pc.view * vec4(inPosition, 1.0);
-
-    fragColor = inColor;
-
-    gl_PointSize = 3.0;
-}
-
-)";
-
-static const char* fragmentShaderSource = R"(
-
-#version 450
-
-layout(location = 0) in vec4 fragColor;
-
-layout(location = 0) out vec4 outColor;
-
-void main()
-{
-    outColor = fragColor;
-}
-
-)";
-
-vsg::ref_ptr<vsg::Node> vsgPotree::potree::createPointCloudNode(const std::vector<char>& data, int pointNum, vsg::ref_ptr<Attributes> attributes) const
+vsg::ref_ptr<vsg::Node> vsgPotree::potree::createPointCloudNode(const std::vector<char>& data, int pointNum, vsg::ref_ptr<Attributes> attributes, vsg::ref_ptr<vsgPotree::PipelineCache> pipelineCache) const
 {
     PointCloudContent vertexData;
     vertexData.vertices = vsg::vec3Array::create(pointNum);
     vertexData.colors = vsg::vec4Array::create(pointNum);
     vsg::dvec3 center = (attributes->_box.min + attributes->_box.max) * 0.5;
+    bool hasColor = false;
     for (int i = 0; i < pointNum; i++)
     {
         const char* pData = data.data() + (attributes->_bytes * i);
@@ -311,11 +286,12 @@ vsg::ref_ptr<vsg::Node> vsgPotree::potree::createPointCloudNode(const std::vecto
                 if (INT16 == attributes->_list[j].type || UINT16 == attributes->_list[j].type)
                 {
                     uint16_t* pDataUInt16 = (uint16_t*)pData;
-                    vsg::vec4 color = vsg::vec4((pDataUInt16[0] >> 8)/256,
-                        (pDataUInt16[1] >> 8) / 256,
-                           (pDataUInt16[2] >> 8) / 256,
+                    vsg::vec4 color = vsg::vec4(1.0*(pDataUInt16[0] >> 8)/256,
+                        1.0 * (pDataUInt16[1] >> 8) / 256,
+                        1.0 * (pDataUInt16[2] >> 8) / 256,
                         1.0);
                     vertexData.colors->set(i,color);
+                    hasColor = true;
                 }
                 else
                 {
@@ -325,67 +301,15 @@ vsg::ref_ptr<vsg::Node> vsgPotree::potree::createPointCloudNode(const std::vecto
             pData += attributes->_list[j].size;
         }
     }
-
-    auto vertexShader = vsg::ShaderStage::create(
-        VK_SHADER_STAGE_VERTEX_BIT,
-        "main",
-        vertexShaderSource);
-
-    auto fragmentShader = vsg::ShaderStage::create(
-        VK_SHADER_STAGE_FRAGMENT_BIT,
-        "main",
-        fragmentShaderSource);
-
-    vsg::ShaderStages shaderStages{
-        vertexShader,
-        fragmentShader
-    };
-
-    vsg::VertexInputState::Bindings vertexBindingsDescriptions;
-    vsg::VertexInputState::Attributes vertexAttributeDescriptions;
+    uint32_t geometryAttributesMask = 0;
+    if (!hasColor)
     {
-        uint32_t vertexBindingIndex = 0;
-        // setup vertex array
-        {
-            vertexBindingsDescriptions.push_back(VkVertexInputBindingDescription{ vertexBindingIndex, sizeof(vsg::vec3), VK_VERTEX_INPUT_RATE_VERTEX });
-            vertexAttributeDescriptions.push_back(VkVertexInputAttributeDescription{ VERTEX_CHANNEL, vertexBindingIndex, VK_FORMAT_R32G32B32_SFLOAT, 0 });
-            vertexBindingIndex++;
-        }
-
-        {
-            VkVertexInputRate color_rate = VK_VERTEX_INPUT_RATE_VERTEX;
-            vertexBindingsDescriptions.push_back(VkVertexInputBindingDescription{ vertexBindingIndex, sizeof(vsg::vec4), color_rate });
-            vertexAttributeDescriptions.push_back(VkVertexInputAttributeDescription{ COLOR_CHANNEL, vertexBindingIndex, VK_FORMAT_R32G32B32A32_SFLOAT, 0 }); // color as vec4
-            vertexBindingIndex++;
-        }
+        std::fill(vertexData.colors->begin(), vertexData.colors->end(), vsg::vec4(1.0f, 1.0f, 1.0f, 1.0f));
     }
-    //PipelineLayout
-    vsg::PushConstantRanges pushConstantRanges{
-    {VK_SHADER_STAGE_VERTEX_BIT, 0, 128} // projection and modelview matrices
-    };
-    auto pipelineLayout = vsg::PipelineLayout::create(
-        vsg::DescriptorSetLayouts{},
-        pushConstantRanges);
-
-    //GraphicsPipelineStates
-    vsg::GraphicsPipelineStates pipelineStates{
-        vsg::VertexInputState::create(vertexBindingsDescriptions, vertexAttributeDescriptions),
-        vsg::InputAssemblyState::create(VK_PRIMITIVE_TOPOLOGY_POINT_LIST),
-        vsg::RasterizationState::create(),
-        vsg::MultisampleState::create(),
-        vsg::ColorBlendState::create(),
-        vsg::DepthStencilState::create()
-    };
-
-    //GraphicsPipeline
-    auto graphicsPipeline = vsg::GraphicsPipeline::create(
-        pipelineLayout,
-        shaderStages,
-        pipelineStates);
+    geometryAttributesMask = geometryAttributesMask | COLOR;
 
     auto stateGroup = vsg::StateGroup::create();
-
-    stateGroup->add(vsg::BindGraphicsPipeline::create(graphicsPipeline));
+    stateGroup->add(pipelineCache->getOrCreateBindGraphicsPipeline(geometryAttributesMask, NULL));
 
     auto commands = vsg::Commands::create();
 
@@ -403,6 +327,28 @@ vsg::ref_ptr<vsg::Node> vsgPotree::potree::createPointCloudNode(const std::vecto
 
     stateGroup->addChild(commands);
     return stateGroup;
+}
+
+vsg::ref_ptr<vsg::Node> vsgPotree::potree::createTileChildren(vsg::ref_ptr<HNode> parentHNode, vsg::ref_ptr<Attributes> attributes, const std::string& filePathDir, vsg::ref_ptr<const vsg::Options> options) const
+{
+    if (!parentHNode)
+    {
+        return NULL;
+    }
+
+    vsg::ref_ptr<vsg::Group> grp = vsg::Group::create();
+    for (int i = 0; i < 8; i++)
+    {
+        if (parentHNode->_children[i])
+        {
+            vsg::ref_ptr<vsg::Node> node = createTile(parentHNode->_children[i], attributes, filePathDir, options);
+            if (node)
+            {
+                grp->addChild(node);
+            }
+        }
+    }
+    return grp;
 }
 
 vsg::ref_ptr<vsg::Node> vsgPotree::potree::createTile(vsg::ref_ptr<HNode> hNode, vsg::ref_ptr<Attributes> attributes, const vsg::Path& filePathDir, vsg::ref_ptr<const vsg::Options> options) const
@@ -433,43 +379,46 @@ vsg::ref_ptr<vsg::Node> vsgPotree::potree::createTile(vsg::ref_ptr<HNode> hNode,
         std::vector<char> data(hNode->_byteSize, 0);
         fin.read(data.data(), hNode->_byteSize);
         fin.close();
-        vsg::ref_ptr<vsg::Node> pointcloudNode = createPointCloudNode(data, hNode->_numPoints, attributes);
-        //if (0 != hNode->_childMask)
-        //{
-        //    vsg::ref_ptr<vsg::PagedLOD> plod = new vsg::PagedLOD;
-        //    plod->addChild(pointcloudNode);
-        //    osgDB::Options* childOpt = new osgDB::Options;
-        //    osg::ref_ptr<PotreeContainer> parentContainer = new PotreeContainer(hNode, attributes);
-        //    parentContainer->setName("ParentTile");
-        //    childOpt->getOrCreateUserDataContainer()->addUserObject(parentContainer);
-        //    plod->setDatabaseOptions(childOpt);
-        //    plod->setFileName(1, filePathDir + "." + std::to_string(hNode->_byteOffset) + ".pchildren");
-
-        //    if (pointcloudNode.valid())
-        //    {
-        //        osg::BoundingSphered bound2;
-        //        osg::BoundingSphere bound0 = pointcloudNode->getBound();
-        //        bound2.expandBy(osg::BoundingSphered(bound0.center(), bound0.radius()));
-        //        plod->setCenterMode(osg::LOD::USER_DEFINED_CENTER);
-        //        plod->setCenter(bound2.center());
-        //        plod->setRadius(bound2.radius());
-        //    }
-        //    else
-        //    {
-        //        OSG_WARN << "[ReaderWriterPotree] Missing <boundingVolume>?" << std::endl;
-        //    }
-        //    plod->setRangeMode(osg::LOD::DISTANCE_FROM_EYE_POINT);
-        //    plod->setRange(0, 0.0f, FLT_MAX);
-        //    double radius = plod->getRadius();
-        //    //Assuming the screen height in pixels is 1080.
-        //    //The maximum cross-sectional area of the data on the screen is 4 * radius * radius
-        //    //The field of view is 60 degrees, with tan(30) = 0.5629
-        //    //assuing every points is rendered as a 1 pixel square
-        //    double range = 1080 * std::sqrt(4 * radius * radius / hNode->_numPoints) / 2 / 0.5629;
-        //    plod->setRange(1, 0, range);
-        //    return plod.release();
-        //}
-        //else
+        vsg::ref_ptr<vsgPotree::PipelineCache> pipelineCache = vsg::ref_ptr<vsgPotree::PipelineCache>((vsgPotree::PipelineCache*)(options->getObject(PipelineCacheName)->cast<vsgPotree::PipelineCache>()));
+        if (!pipelineCache)
+        {
+            static std::mutex s_mutex;
+            std::lock_guard<std::mutex> lock(s_mutex);
+            pipelineCache = vsgPotree::PipelineCache::create();
+        }
+        vsg::ref_ptr<vsg::Node> pointcloudNode = createPointCloudNode(data, hNode->_numPoints, attributes, pipelineCache);
+        if (0 != hNode->_childMask)
+        {
+            vsg::ComputeBounds cb;
+            pointcloudNode->accept(cb);
+            vsg::dbox bounds = cb.bounds;
+            vsg::ref_ptr<vsg::PagedLOD> plod = vsg::PagedLOD::create();
+            double radius = vsg::length(bounds.max - bounds.min) * 0.5;
+            plod->bound = vsg::dsphere((bounds.min + bounds.max) * 0.5, radius);
+            plod->filename = filePathDir + "." + std::to_string(hNode->_byteOffset) + ".potreechildren";
+            //Assuming the screen height in pixels is 1080.
+            //The maximum cross-sectional area of the data on the screen is 4 * radius * radius
+            //The field of view is 60 degrees, with tan(30) = 0.5629
+            //assuing every points is rendered as a 1 pixel square
+            double range = 1080 * std::sqrt(4 * radius * radius / hNode->_numPoints) / 2 / 0.5629;
+            //copy from osg2vsg
+            double ratio = atan2(radius,range)/(30*vsg::PI /180);
+            plod->children[0].minimumScreenHeightRatio = ratio;
+            plod->children[0].node = nullptr;
+            plod->children[1].minimumScreenHeightRatio = 0.0;
+            plod->children[1].node = pointcloudNode; 
+            plod->options = vsg::Options::create();
+            for (int i = 0;i < options->readerWriters.size();i++)
+            {
+                plod->options->add(options->readerWriters[i]);
+            }
+            plod->options->setObject(PipelineCacheName, pipelineCache);
+            auto auxi = plod->options->getOrCreateAuxiliary();
+            vsg::ref_ptr<PotreeContainer> parentContainer = PotreeContainer::create(hNode, attributes);
+            auxi->setObject("ParentTile", parentContainer);
+            return plod;
+        }
+        else
         {
             return pointcloudNode;
         }
