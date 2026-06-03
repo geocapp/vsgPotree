@@ -26,5 +26,5 @@ vsgPotree 是基于 [VulkanSceneGraph](https://github.com/vsg-dev/VulkanSceneGra
 ## 特性
 在安装目录bin文件夹下，以cmd模式运行。
 ### 大体量点云显示:
-    vsgviewer ../assets/PointExtractor.potree
+    vsgPotree ../assets/PointExtractor.potree
 ![alt text](vsgPotree.png)
