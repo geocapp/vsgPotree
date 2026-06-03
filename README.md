@@ -1,6 +1,6 @@
 # vsgPotree
 
-vsgPotree 是基于 VulkanSceneGraph(VSg)开发的插件，能够直接加载由 PotreeConverter 2.0 生成的点云数据，为 VSG 用户提供了便捷的大体量点云渲染支持。
+vsgPotree 是基于 [VulkanSceneGraph](https://github.com/vsg-dev/VulkanSceneGraph.git)开发的插件，能够直接加载由 [PotreeConverter 2.0](https://github.com/potree/PotreeConverter.git)生成的点云数据，为 VSG 用户提供了便捷的大体量点云渲染支持。
 本代码库包含用于构建 vsgPotree 库的 C++ 头文件、源文件以及 CMake 构建脚本。当前至少依赖VulkanSceneGraph(Vulkan、glslang)。与VulkanSceneGraph一致，该软件支持在Linux、Windows、Android、macOS下构建。
 
 ## osgPotree 构建快速指南
