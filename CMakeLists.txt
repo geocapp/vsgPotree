@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.17.5)
+cmake_minimum_required(VERSION 3.7.0)
 
 project(vsgPotree)
 SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMakeModules;${CMAKE_MODULE_PATH}")
@@ -18,4 +18,5 @@ include_directories(${CMAKE_SOURCE_DIR})
 
 find_package(vsg REQUIRED)
 
-add_subdirectory(vsgPotree)
+ADD_SUBDIRECTORY(assets)
+ADD_SUBDIRECTORY(vsgPotree)
