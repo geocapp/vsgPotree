@@ -8,7 +8,7 @@ vsgPotree 是基于 VulkanSceneGraph(VSg)开发的插件，能够直接加载由
 ### 环境准备:
 * 必要: 支持 C++17 标准的编译器，例如 g++ 7.3 或更高版本、Clang 6.0 或更高版本、Visual Studio 2017 或更高版本。
 * 必要： [CMake](https://www.cmake.org) 3.7或以后。
-* 必要:  [VulkanSceneGraph](https://github.com/vsg-dev/VulkanSceneGraph.git) 1.1.15及以后。
+* 必要： [VulkanSceneGraph](https://github.com/vsg-dev/VulkanSceneGraph.git) 1.1.15及以后。
 * 必要： [Vulkan](https://vulkan.lunarg.com/) 1.1或以后
 
 以上列出的依赖版本均为经验证可用的版本，因此被设定为当前的最低要求。使用更早的版本进行构建也有可能成功。若您使用更旧的版本成功完成构建，请告知我们，以便更新版本信息。
