@@ -21,7 +21,7 @@ namespace vsgPotree
         bool readOptions(vsg::Options& options, vsg::CommandLine& arguments) const override;
 
     protected:
-        bool ParseHierarchy(const std::string& hierarchyPath, int offset, vsg::ref_ptr<HNode>& hNode) const;
+        bool ParseHierarchy(const std::string& hierarchyPath, uint64_t offset, vsg::ref_ptr<HNode>& hNode) const;
         void ParseToHNode(const std::vector<char>& data, vsg::ref_ptr<HNode> hNode) const;
         bool ParseMetadata(const std::string& path, vsg::ref_ptr<Attributes>& attributes) const;
         vsg::ref_ptr<vsg::Node> createTile(vsg::ref_ptr<HNode> hNode, vsg::ref_ptr<Attributes> attributes, const vsg::Path& filePathDir, vsg::ref_ptr<const vsg::Options> options) const;

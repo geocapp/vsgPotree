@@ -88,7 +88,7 @@ void vsgPotree::potree::ParseToHNode(const std::vector<char>& data, vsg::ref_ptr
     hNode->_byteSize = ((uint64_t*)(data.data() + 14))[0];
 }
 
-bool vsgPotree::potree::ParseHierarchy(const std::string& hierarchyPath, int offset, vsg::ref_ptr<HNode>& hNode) const
+bool vsgPotree::potree::ParseHierarchy(const std::string& hierarchyPath, uint64_t offset, vsg::ref_ptr<HNode>& hNode) const
 {
     std::fstream fin(hierarchyPath, std::ios::binary | std::ios::in);
     if (!fin)
@@ -271,9 +271,9 @@ vsg::ref_ptr<vsg::Node> vsgPotree::potree::createPointCloudNode(const std::vecto
                 if (INT32 == attributes->_list[j].type || UINT32 == attributes->_list[j].type)
                 {
                     int* pDataInt = (int*)pData;
-                    vsg::vec3 position = vsg::vec3(attributes->_posOffset.x + attributes->_posScale.x * pDataInt[0] - center.x,
-                        attributes->_posOffset.y + attributes->_posScale.y * pDataInt[1] - center.y,
-                        attributes->_posOffset.z + attributes->_posScale.z * pDataInt[2] - center.z);
+                    vsg::vec3 position = vsg::vec3(float(attributes->_posOffset.x + attributes->_posScale.x * pDataInt[0] - center.x),
+                        float(attributes->_posOffset.y + attributes->_posScale.y * pDataInt[1] - center.y),
+                            float(attributes->_posOffset.z + attributes->_posScale.z * pDataInt[2] - center.z));
                     vertexData.vertices->set(i, position);
                 }
                 else
@@ -286,10 +286,10 @@ vsg::ref_ptr<vsg::Node> vsgPotree::potree::createPointCloudNode(const std::vecto
                 if (INT16 == attributes->_list[j].type || UINT16 == attributes->_list[j].type)
                 {
                     uint16_t* pDataUInt16 = (uint16_t*)pData;
-                    vsg::vec4 color = vsg::vec4(1.0*(pDataUInt16[0] >> 8)/256,
-                        1.0 * (pDataUInt16[1] >> 8) / 256,
-                        1.0 * (pDataUInt16[2] >> 8) / 256,
-                        1.0);
+                    vsg::vec4 color = vsg::vec4(float(1.0*(pDataUInt16[0] >> 8)/256),
+                        float(1.0 * (pDataUInt16[1] >> 8) / 256),
+                        float(1.0 * (pDataUInt16[2] >> 8) / 256),
+                        1.0f);
                     vertexData.colors->set(i,color);
                     hasColor = true;
                 }

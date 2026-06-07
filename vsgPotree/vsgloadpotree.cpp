@@ -19,7 +19,7 @@ int main(int argc, char** argv)
     }
 
     vsg::Path filename = arguments[1];
-
+    bool reportAverageFrameRate = arguments.read("--fps");
     // set up vsg::Options to pass in filepaths, ReaderWriters and other IO related options to use when reading and writing files.
     vsg::ref_ptr<vsg::Options> options = vsg::Options::create();
     options->fileCache = vsg::getEnv("VSG_FILE_CACHE");
